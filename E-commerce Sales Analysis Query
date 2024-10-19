@@ -1,0 +1,47 @@
+-- Step 1: Create a Common Table Expression (CTE) for monthly sales
+WITH monthly_sales AS (
+    SELECT 
+        DATE_TRUNC('month', o.order_date) AS sale_month,
+        p.category,
+        SUM(oi.quantity * oi.unit_price) AS total_sales
+    FROM 
+        orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        JOIN products p ON oi.product_id = p.product_id
+    WHERE 
+        o.order_date >= DATE_TRUNC('year', CURRENT_DATE) -- Consider only this year's data
+    GROUP BY 
+        DATE_TRUNC('month', o.order_date),
+        p.category
+),
+
+-- Step 2: Create a CTE for calculating the previous month's sales
+prev_month_sales AS (
+    SELECT 
+        sale_month,
+        category,
+        total_sales,
+        LAG(total_sales) OVER (PARTITION BY category ORDER BY sale_month) AS prev_month_sales
+    FROM 
+        monthly_sales
+)
+
+-- Step 3: Main query to calculate growth rates and rankings
+SELECT 
+    sale_month,
+    category,
+    total_sales,
+    prev_month_sales,
+    CASE 
+        WHEN prev_month_sales > 0 THEN 
+            ((total_sales - prev_month_sales) / prev_month_sales * 100)
+        ELSE 
+            NULL
+    END AS growth_rate,
+    RANK() OVER (PARTITION BY sale_month ORDER BY total_sales DESC) AS sales_rank
+FROM 
+    prev_month_sales
+WHERE 
+    sale_month = (SELECT MAX(sale_month) FROM monthly_sales) -- Focus on the latest month
+ORDER BY 
+    sales_rank;
