@@ -45,3 +45,52 @@ WHERE
     sale_month = (SELECT MAX(sale_month) FROM monthly_sales) -- Focus on the latest month
 ORDER BY 
     sales_rank;
+
+--Branch
+WITH monthly_sales AS (
+    SELECT 
+        DATE_TRUNC('month', o.order_date) AS sale_month,
+        p.category,
+        c.segment,
+        SUM(oi.quantity * oi.unit_price) AS total_sales
+    FROM 
+        orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        JOIN products p ON oi.product_id = p.product_id
+        JOIN customers c ON o.customer_id = c.customer_id
+    WHERE 
+        o.order_date >= DATE_TRUNC('year', CURRENT_DATE)
+    GROUP BY 
+        DATE_TRUNC('month', o.order_date),
+        p.category,
+        c.segment
+),
+prev_month_sales AS (
+    SELECT 
+        sale_month,
+        category,
+        segment,
+        total_sales,
+        LAG(total_sales) OVER (PARTITION BY category, segment ORDER BY sale_month) AS prev_month_sales
+    FROM 
+        monthly_sales
+)
+SELECT 
+    sale_month,
+    category,
+    segment,
+    total_sales,
+    prev_month_sales,
+    CASE 
+        WHEN prev_month_sales > 0 THEN 
+            ((total_sales - prev_month_sales) / prev_month_sales * 100)
+        ELSE 
+            NULL
+    END AS growth_rate,
+    RANK() OVER (PARTITION BY sale_month, segment ORDER BY total_sales DESC) AS sales_rank
+FROM 
+    prev_month_sales
+WHERE 
+    sale_month = (SELECT MAX(sale_month) FROM monthly_sales)
+ORDER BY 
+    segment, sales_rank;
