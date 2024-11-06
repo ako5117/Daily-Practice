@@ -1,0 +1,26 @@
+import sympy as sp
+
+def calculate_derivative(function_str):
+    # Define the variable
+    x = sp.symbols('x')
+    
+    # Convert the input string to a symbolic expression
+    function = sp.sympify(function_str)
+    
+    # Calculate the derivative
+    derivative = sp.diff(function, x)
+    
+    # Display each step in the differentiation process
+    steps = sp.diff(function, x, evaluate=False)
+    
+    print(f"Original Function: {function}")
+    print("Differentiation Steps:")
+    for step in steps.as_ordered_terms():
+        print(f"Step: {step}")
+    print(f"Derivative: {derivative}")
+    
+    return derivative
+
+# Example usage
+function_input = input("Enter a function of x: ")
+calculate_derivative(function_input)
